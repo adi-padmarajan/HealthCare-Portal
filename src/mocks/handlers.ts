@@ -1,6 +1,8 @@
 import { delay, http, HttpResponse } from "msw";
 
+import { mockLogin, mockSignUp } from "@/features/auth/mock-auth";
 import { initialBookings, physicians as initialPhysicians, timeSlots } from "@/services/mockData";
+import { parseMockToken } from "@/services/authToken";
 import type {
   AvailabilitySlot,
   Booking,
@@ -122,7 +124,64 @@ async function withDelay<T>(response: T) {
   return response;
 }
 
+// ---------------------------------------------------------------------------
+// Auth helpers
+// ---------------------------------------------------------------------------
+
+function getAuthUser(request: Request) {
+  const header = request.headers.get("Authorization");
+  if (!header?.startsWith("Bearer ")) return null;
+  return parseMockToken(header.slice(7));
+}
+
+function unauthorized() {
+  return HttpResponse.json(
+    { code: "UNAUTHORIZED", message: "Authentication required." },
+    { status: 401 },
+  );
+}
+
+function forbidden() {
+  return HttpResponse.json(
+    { code: "FORBIDDEN", message: "You do not have permission to perform this action." },
+    { status: 403 },
+  );
+}
+
 export const handlers = [
+  // -------------------------------------------------------------------------
+  // Auth endpoints
+  // -------------------------------------------------------------------------
+  http.post(`${API_BASE}/auth/login`, async ({ request }) => {
+    const input = await readBody<{ email: string; password: string }>(request);
+    try {
+      const session = mockLogin(input);
+      return withDelay(HttpResponse.json({ token: session.token, user: session.user }));
+    } catch {
+      return withDelay(
+        HttpResponse.json(
+          { code: "INVALID_CREDENTIALS", message: "Invalid email or password." },
+          { status: 401 },
+        ),
+      );
+    }
+  }),
+  http.post(`${API_BASE}/auth/signup`, async ({ request }) => {
+    const input = await readBody<{ name: string; email: string; password: string; confirmPassword: string }>(request);
+    try {
+      const session = mockSignUp(input);
+      return withDelay(HttpResponse.json({ token: session.token, user: session.user }, { status: 201 }));
+    } catch (err) {
+      return withDelay(
+        HttpResponse.json(
+          { code: "CONFLICT", message: err instanceof Error ? err.message : "Unable to create account." },
+          { status: 409 },
+        ),
+      );
+    }
+  }),
+  http.post(`${API_BASE}/auth/logout`, async () => withDelay(new HttpResponse(null, { status: 204 }))),
+
   http.get(`${API_BASE}/physicians`, async () => withDelay(HttpResponse.json(physicians))),
   http.post(`${API_BASE}/physicians`, async ({ request }) => {
     const input = await readBody<Omit<Physician, "id">>(request);
@@ -191,11 +250,29 @@ export const handlers = [
   }),
 
   http.get(`${API_BASE}/bookings`, async ({ request }) => {
+    const user = getAuthUser(request);
+    if (!user) return withDelay(unauthorized());
+
     const url = new URL(request.url);
+    // Patients can only query their own bookings — ignore any patientEmail
+    // param that might have been passed and force-scope to their identity.
+    if (user.role === "patient") {
+      url.searchParams.set("patientEmail", user.email);
+    }
+
     return withDelay(HttpResponse.json(filterBookings(url)));
   }),
   http.post(`${API_BASE}/bookings`, async ({ request }) => {
+    const user = getAuthUser(request);
+    if (!user) return withDelay(unauthorized());
+
     const input = await readBody<CreateBookingInput>(request);
+
+    // Patients may only create bookings for themselves.
+    if (user.role === "patient" && input.patientEmail !== user.email) {
+      return withDelay(forbidden());
+    }
+
     const isDoubleBooked = bookings.some(
       (booking) =>
         booking.physicianId === input.physicianId &&
@@ -239,6 +316,9 @@ export const handlers = [
     return withDelay(HttpResponse.json(updated));
   }),
   http.patch(`${API_BASE}/bookings/:id/status`, async ({ params, request }) => {
+    const user = getAuthUser(request);
+    if (!user) return withDelay(unauthorized());
+
     const id = getRequestId(params);
     const input = await readBody<{ status: BookingStatus }>(request);
     const booking = bookings.find((item) => item.id === id);
@@ -247,17 +327,32 @@ export const handlers = [
       return withDelay(notFound("Booking"));
     }
 
+    // Patients may only cancel their own bookings.
+    if (user.role === "patient") {
+      if (booking.patientEmail !== user.email) return withDelay(forbidden());
+      if (input.status !== "Cancelled") return withDelay(forbidden());
+    }
+
     const updated = { ...booking, status: input.status };
     bookings = bookings.map((item) => (item.id === id ? updated : item));
     return withDelay(HttpResponse.json(updated));
   }),
-  http.delete(`${API_BASE}/bookings/:id`, async ({ params }) => {
+  http.delete(`${API_BASE}/bookings/:id`, async ({ params, request }) => {
+    const user = getAuthUser(request);
+    if (!user) return withDelay(unauthorized());
+    if (user.role !== "admin") return withDelay(forbidden());
+
     const id = getRequestId(params);
     bookings = bookings.filter((item) => item.id !== id);
     return withDelay(new HttpResponse(null, { status: 204 }));
   }),
 
-  http.get(`${API_BASE}/patients`, async () => withDelay(HttpResponse.json(listPatients()))),
+  http.get(`${API_BASE}/patients`, async ({ request }) => {
+    const user = getAuthUser(request);
+    if (!user) return withDelay(unauthorized());
+    if (user.role !== "admin") return withDelay(forbidden());
+    return withDelay(HttpResponse.json(listPatients()));
+  }),
   http.post(`${API_BASE}/patients`, async ({ request }) => {
     const input = await readBody<Omit<Patient, "id">>(request);
     const patient: Patient = { ...input, id: patientIdFromEmail(input.email) };
