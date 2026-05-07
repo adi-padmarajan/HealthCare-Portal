@@ -357,6 +357,21 @@ export const handlers = [
       if (input.status !== "Cancelled") return withDelay(forbidden());
     }
 
+    // Cancelled bookings cannot be re-confirmed — patients must create a new
+    // booking. See product decision in README.
+    if (booking.status === "Cancelled" && input.status === "Confirmed") {
+      return withDelay(
+        HttpResponse.json(
+          {
+            code: "INVALID_TRANSITION",
+            message:
+              "Cancelled bookings cannot be re-confirmed. Create a new booking instead.",
+          },
+          { status: 409 },
+        ),
+      );
+    }
+
     const oldStatus = booking.status;
     const updated = { ...booking, status: input.status };
     bookings = bookings.map((item) => (item.id === id ? updated : item));

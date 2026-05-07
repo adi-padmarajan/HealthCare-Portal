@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ApiError } from "@/services/api";
 import { useAuditLog, useBookings, usePhysicians, useUpdateBookingStatus } from "@/services/queries";
 import { format } from "date-fns";
 import { formatCalendarDate } from "@/lib/date";
@@ -108,7 +109,13 @@ export function AdminView() {
     updateBookingStatus.mutate(
       { id: bookingId, status },
       {
-        onError: () => {
+        onError: (error) => {
+          if (error instanceof ApiError && error.code === "INVALID_TRANSITION") {
+            toast.error("Cancelled bookings can't be re-confirmed", {
+              description: "Ask the patient to submit a new booking request.",
+            });
+            return;
+          }
           toast.error("Unable to update appointment", {
             description: "Please try again. No appointment details were included in this error.",
           });
@@ -195,26 +202,26 @@ export function AdminView() {
                         <Eye className="h-4 w-4" aria-hidden="true" />
                       </Button>
                       {booking.status === "Pending" && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            aria-label={`Confirm appointment ${booking.id}`}
-                            disabled={updateBookingStatus.isPending}
-                            onClick={() => handleConfirm(booking.id)}
-                          >
-                            <CheckCircle className="h-4 w-4 text-green-600" aria-hidden="true" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            aria-label={`Cancel appointment ${booking.id}`}
-                            disabled={updateBookingStatus.isPending}
-                            onClick={() => handleCancel(booking.id)}
-                          >
-                            <XCircle className="h-4 w-4 text-red-600" aria-hidden="true" />
-                          </Button>
-                        </>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Confirm appointment ${booking.id}`}
+                          disabled={updateBookingStatus.isPending}
+                          onClick={() => handleConfirm(booking.id)}
+                        >
+                          <CheckCircle className="h-4 w-4 text-green-600" aria-hidden="true" />
+                        </Button>
+                      )}
+                      {booking.status !== "Cancelled" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Cancel appointment ${booking.id}`}
+                          disabled={updateBookingStatus.isPending}
+                          onClick={() => handleCancel(booking.id)}
+                        >
+                          <XCircle className="h-4 w-4 text-red-600" aria-hidden="true" />
+                        </Button>
                       )}
                     </div>
                   </td>
@@ -460,17 +467,34 @@ export function AdminView() {
           )}
 
           <DrawerFooter>
-            {selectedBooking?.status === "Pending" && (
+            {selectedBooking && selectedBooking.status !== "Cancelled" && (
               <div className="flex gap-3">
-                <Button onClick={() => handleConfirm(selectedBooking.id)} disabled={updateBookingStatus.isPending} className="flex-1">
-                  <CheckCircle className="h-4 w-4 mr-2" aria-hidden="true" />
-                  Confirm Appointment
-                </Button>
-                <Button variant="destructive" onClick={() => handleCancel(selectedBooking.id)} disabled={updateBookingStatus.isPending} className="flex-1">
+                {selectedBooking.status === "Pending" && (
+                  <Button
+                    onClick={() => handleConfirm(selectedBooking.id)}
+                    disabled={updateBookingStatus.isPending}
+                    className="flex-1"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" aria-hidden="true" />
+                    Confirm Appointment
+                  </Button>
+                )}
+                <Button
+                  variant="destructive"
+                  onClick={() => handleCancel(selectedBooking.id)}
+                  disabled={updateBookingStatus.isPending}
+                  className="flex-1"
+                >
                   <XCircle className="h-4 w-4 mr-2" aria-hidden="true" />
                   Cancel Appointment
                 </Button>
               </div>
+            )}
+            {selectedBooking?.status === "Cancelled" && (
+              <p className="text-sm text-muted-foreground text-center">
+                This booking has been cancelled. To rebook, the patient must submit a
+                new request.
+              </p>
             )}
             <DrawerClose asChild>
               <Button variant="outline">Close</Button>
