@@ -1,3 +1,4 @@
+import { authToken } from "@/services/authToken";
 import type {
   AppointmentType,
   AvailabilitySlot,
@@ -97,11 +98,13 @@ async function parseError(response: Response) {
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { body, headers, query, ...init } = options;
+  const token = authToken.get();
   const response = await fetch(buildUrl(path, query), {
     credentials: "include",
     headers: {
       Accept: "application/json",
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
     ...init,
