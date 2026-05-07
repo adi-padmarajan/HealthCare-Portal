@@ -4,6 +4,7 @@ import { mockLogin, mockSignUp } from "@/features/auth/mock-auth";
 import { initialBookings, physicians as initialPhysicians, timeSlots } from "@/services/mockData";
 import { parseMockToken } from "@/services/authToken";
 import type {
+  AuditLogEntry,
   AvailabilitySlot,
   Booking,
   BookingStatus,
@@ -18,6 +19,26 @@ const NETWORK_DELAY_MS = 250;
 let physicians: Physician[] = structuredClone(initialPhysicians);
 let bookings: Booking[] = structuredClone(initialBookings);
 let availabilityOverrides: AvailabilitySlot[] = [];
+let auditLog: AuditLogEntry[] = [];
+
+function appendAudit(
+  actorId: string,
+  action: string,
+  targetId: string,
+  metadata?: Record<string, string | number | boolean | null>,
+) {
+  auditLog = [
+    ...auditLog,
+    {
+      action,
+      actorId,
+      id: nextId("AUD-"),
+      metadata,
+      targetId,
+      timestamp: new Date().toISOString(),
+    },
+  ];
+}
 
 function nextId(prefix: string) {
   return `${prefix}${String(Math.floor(Math.random() * 9000) + 1000)}`;
@@ -89,7 +110,8 @@ function buildAvailability(physicianId: string, date: string): AvailabilitySlot[
         booking.physicianId === physicianId &&
         booking.date === date &&
         booking.time === time &&
-        booking.status !== "Cancelled",
+        booking.status !== "Cancelled" &&
+        !booking.deletedAt,
     );
     const isStaticUnavailable = time === "9:30 AM" || time === "2:00 PM";
 
@@ -110,6 +132,7 @@ function filterBookings(url: URL) {
   const status = url.searchParams.get("status") as BookingStatus | null;
 
   return bookings.filter((booking) => {
+    if (booking.deletedAt) return false;
     const matchesDate = !date || booking.date === date;
     const matchesPatient = !patientEmail || booking.patientEmail === patientEmail;
     const matchesPhysician = !physicianId || booking.physicianId === physicianId;
@@ -300,7 +323,8 @@ export const handlers = [
   http.get(`${API_BASE}/bookings/:id`, async ({ params }) => {
     const id = getRequestId(params);
     const booking = bookings.find((item) => item.id === id);
-    return withDelay(booking ? HttpResponse.json(booking) : notFound("Booking"));
+    if (!booking || booking.deletedAt) return withDelay(notFound("Booking"));
+    return withDelay(HttpResponse.json(booking));
   }),
   http.patch(`${API_BASE}/bookings/:id`, async ({ params, request }) => {
     const id = getRequestId(params);
@@ -323,7 +347,7 @@ export const handlers = [
     const input = await readBody<{ status: BookingStatus }>(request);
     const booking = bookings.find((item) => item.id === id);
 
-    if (!booking) {
+    if (!booking || booking.deletedAt) {
       return withDelay(notFound("Booking"));
     }
 
@@ -333,8 +357,15 @@ export const handlers = [
       if (input.status !== "Cancelled") return withDelay(forbidden());
     }
 
+    const oldStatus = booking.status;
     const updated = { ...booking, status: input.status };
     bookings = bookings.map((item) => (item.id === id ? updated : item));
+
+    appendAudit(user.email, "BOOKING_STATUS_UPDATED", id, {
+      newStatus: input.status,
+      oldStatus,
+    });
+
     return withDelay(HttpResponse.json(updated));
   }),
   http.delete(`${API_BASE}/bookings/:id`, async ({ params, request }) => {
@@ -343,7 +374,19 @@ export const handlers = [
     if (user.role !== "admin") return withDelay(forbidden());
 
     const id = getRequestId(params);
-    bookings = bookings.filter((item) => item.id !== id);
+    const booking = bookings.find((item) => item.id === id);
+
+    if (!booking || booking.deletedAt) {
+      return withDelay(notFound("Booking"));
+    }
+
+    const deletedAt = new Date().toISOString();
+    bookings = bookings.map((item) =>
+      item.id === id ? { ...item, deletedAt, status: "Cancelled" as const } : item,
+    );
+
+    appendAudit(user.email, "BOOKING_DELETED", id, { deletedAt });
+
     return withDelay(new HttpResponse(null, { status: 204 }));
   }),
 
@@ -384,5 +427,13 @@ export const handlers = [
     }
 
     return withDelay(HttpResponse.json(bookings.filter((booking) => booking.patientEmail === patient.email)));
+  }),
+
+  http.get(`${API_BASE}/audit-log`, async ({ request }) => {
+    const user = getAuthUser(request);
+    if (!user) return withDelay(unauthorized());
+    if (user.role !== "admin") return withDelay(forbidden());
+    // Return newest entries first; limit to 100 to keep the payload small.
+    return withDelay(HttpResponse.json([...auditLog].reverse().slice(0, 100)));
   }),
 ];

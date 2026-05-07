@@ -55,6 +55,8 @@ export interface Booking {
   reason: string;
   status: BookingStatus;
   isFirstTime: boolean;
+  /** ISO timestamp set when an admin soft-deletes the record. Clients should treat this as opaque; never render it in patient-facing UI. */
+  deletedAt?: ISODateString;
 }
 
 export type CreateBookingInput = Omit<Booking, "id">;
