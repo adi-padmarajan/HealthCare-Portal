@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { toast } from "sonner";
+
+import { EmptyState, ErrorState, LoadingState } from "@/components/async-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,20 +13,14 @@ import {
   StepPhysician,
   StepReview,
 } from "@/features/booking";
-import { physicians } from "@/services/mockData";
+import { useBookings, useCancelBooking, useCreateBooking, usePhysicians } from "@/services/queries";
 import { format } from "date-fns";
 import { Calendar, Clock, User, X } from "lucide-react";
-import type { AppointmentType, Booking, CreateBookingInput, PatientDetails } from "@/types";
+import type { AppointmentType, PatientDetails } from "@/types";
 
 const steps = ["Choose Physician", "Select Time", "Patient Details", "Review"];
 
-interface PatientViewProps {
-  bookings: Booking[];
-  onAddBooking: (booking: CreateBookingInput) => void;
-  onCancelBooking: (bookingId: string) => void;
-}
-
-export function PatientView({ bookings, onAddBooking, onCancelBooking }: PatientViewProps) {
+export function PatientView() {
   const [view, setView] = useState<"booking" | "my-appointments" | "confirmed">("booking");
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedPhysician, setSelectedPhysician] = useState("");
@@ -41,31 +38,62 @@ export function PatientView({ bookings, onAddBooking, onCancelBooking }: Patient
     isFirstTime: false,
   });
   const [lastBookingId, setLastBookingId] = useState("");
+  const physiciansQuery = usePhysicians();
+  const createBooking = useCreateBooking();
+  const cancelBooking = useCancelBooking();
+  const patientEmail = patientDetails.email.trim();
+  const myBookingsQuery = useBookings(
+    patientEmail ? { patientEmail } : {},
+    view === "my-appointments" && patientEmail.length > 0,
+  );
+  const physicians = physiciansQuery.data ?? [];
 
   const handlePhysicianSelect = (physicianId: string) => {
     setSelectedPhysician(physicianId);
     setCurrentStep(1);
   };
 
-  const handleConfirmBooking = () => {
-    const bookingId = `B${String(Math.floor(Math.random() * 9000) + 1000)}`;
-    onAddBooking({
-      patientName: patientDetails.fullName,
-      patientEmail: patientDetails.email,
-      patientPhone: patientDetails.phone,
-      dateOfBirth: patientDetails.dateOfBirth,
-      insurance: patientDetails.insurance,
-      insuranceMemberId: patientDetails.insuranceMemberId,
-      physicianId: selectedPhysician,
-      date: selectedDate ? format(selectedDate, "yyyy-MM-dd") : "",
-      time: selectedTime,
-      appointmentType,
-      reason: patientDetails.reason,
-      status: "Pending",
-      isFirstTime: patientDetails.isFirstTime,
+  const handleConfirmBooking = async () => {
+    try {
+      const booking = await createBooking.mutateAsync({
+        appointmentType,
+        date: selectedDate ? format(selectedDate, "yyyy-MM-dd") : "",
+        dateOfBirth: patientDetails.dateOfBirth,
+        insurance: patientDetails.insurance,
+        insuranceMemberId: patientDetails.insuranceMemberId,
+        isFirstTime: patientDetails.isFirstTime,
+        patientEmail: patientDetails.email,
+        patientName: patientDetails.fullName,
+        patientPhone: patientDetails.phone,
+        physicianId: selectedPhysician,
+        reason: patientDetails.reason,
+        status: "Pending",
+        time: selectedTime,
+      });
+
+      setLastBookingId(booking.id);
+      toast.success("Appointment request submitted", {
+        description: "The appointment is pending office confirmation.",
+      });
+      setView("confirmed");
+    } catch {
+      toast.error("Unable to submit appointment request", {
+        description: "Please try again. No appointment details were included in this error.",
+      });
+    }
+  };
+
+  const handleCancelBooking = (bookingId: string) => {
+    cancelBooking.mutate(bookingId, {
+      onError: () => {
+        toast.error("Unable to cancel appointment", {
+          description: "Please try again. No appointment details were included in this error.",
+        });
+      },
+      onSuccess: () => {
+        toast.info("Appointment cancelled");
+      },
     });
-    setLastBookingId(bookingId);
-    setView("confirmed");
   };
 
   const handleNewBooking = () => {
@@ -98,7 +126,7 @@ export function PatientView({ bookings, onAddBooking, onCancelBooking }: Patient
   }
 
   if (view === "my-appointments") {
-    const myBookings = bookings.filter((b) => b.patientEmail === patientDetails.email || bookings.length > 0);
+    const myBookings = myBookingsQuery.data ?? [];
 
     return (
       <div className="max-w-6xl mx-auto py-8 px-4">
@@ -110,15 +138,26 @@ export function PatientView({ bookings, onAddBooking, onCancelBooking }: Patient
           <Button onClick={() => setView("booking")}>Book New Appointment</Button>
         </div>
 
-        {myBookings.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="mb-2">No Appointments Yet</h3>
-              <p className="text-muted-foreground mb-6">You haven't booked any appointments</p>
-              <Button onClick={() => setView("booking")}>Book Your First Appointment</Button>
-            </CardContent>
-          </Card>
+        {!patientEmail ? (
+          <EmptyState
+            title="No patient lookup selected"
+            description="Book an appointment first so this view can load the current patient's appointments."
+            action={<Button onClick={() => setView("booking")}>Book Appointment</Button>}
+          />
+        ) : myBookingsQuery.isLoading ? (
+          <LoadingState message="Loading appointments..." />
+        ) : myBookingsQuery.isError ? (
+          <ErrorState
+            title="Unable to load appointments"
+            message="Please try again. Appointment details are not shown in this error."
+            onRetry={() => void myBookingsQuery.refetch()}
+          />
+        ) : myBookings.length === 0 ? (
+          <EmptyState
+            title="No Appointments Yet"
+            description="You haven't booked any appointments."
+            action={<Button onClick={() => setView("booking")}>Book Your First Appointment</Button>}
+          />
         ) : (
           <div className="space-y-4">
             {myBookings.map((booking) => {
@@ -155,7 +194,12 @@ export function PatientView({ bookings, onAddBooking, onCancelBooking }: Patient
                           {booking.status}
                         </Badge>
                         {booking.status !== "Cancelled" && (
-                          <Button variant="ghost" size="sm" onClick={() => onCancelBooking(booking.id)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={cancelBooking.isPending}
+                            onClick={() => handleCancelBooking(booking.id)}
+                          >
                             <X className="h-4 w-4" />
                           </Button>
                         )}
@@ -186,15 +230,30 @@ export function PatientView({ bookings, onAddBooking, onCancelBooking }: Patient
 
       <Card>
         <CardContent className="p-6">
-          {currentStep === 0 && <StepPhysician onSelect={handlePhysicianSelect} />}
+          {currentStep === 0 && (
+            <StepPhysician
+              physicians={physicians}
+              isLoading={physiciansQuery.isLoading}
+              isError={physiciansQuery.isError}
+              onRetry={() => void physiciansQuery.refetch()}
+              onSelect={handlePhysicianSelect}
+            />
+          )}
           {currentStep === 1 && (
             <StepDateTime
+              physicianId={selectedPhysician}
               selectedDate={selectedDate}
               selectedTime={selectedTime}
               appointmentType={appointmentType}
-              onDateChange={setSelectedDate}
+              onDateChange={(date) => {
+                setSelectedDate(date);
+                setSelectedTime("");
+              }}
               onTimeChange={setSelectedTime}
-              onAppointmentTypeChange={setAppointmentType}
+              onAppointmentTypeChange={(type) => {
+                setAppointmentType(type);
+                setSelectedTime("");
+              }}
               onNext={() => setCurrentStep(2)}
               onBack={() => setCurrentStep(0)}
             />
@@ -214,6 +273,8 @@ export function PatientView({ bookings, onAddBooking, onCancelBooking }: Patient
               selectedTime={selectedTime}
               appointmentType={appointmentType}
               patientDetails={patientDetails}
+              physician={physicians.find((physician) => physician.id === selectedPhysician)}
+              isConfirming={createBooking.isPending}
               onBack={() => setCurrentStep(2)}
               onConfirm={handleConfirmBooking}
             />

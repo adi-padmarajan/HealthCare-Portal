@@ -1,18 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { physicians } from "@/services/mockData";
 import { format } from "date-fns";
 import { Calendar, FileText, User } from "lucide-react";
-import type { AppointmentType, PatientDetails } from "@/types";
+import type { AppointmentType, PatientDetails, Physician } from "@/types";
 
 interface StepReviewProps {
+  isConfirming?: boolean;
+  onBack: () => void;
+  onConfirm: () => void;
+  patientDetails: PatientDetails;
+  physician?: Physician;
   physicianId: string;
   selectedDate: Date | undefined;
   selectedTime: string;
   appointmentType: AppointmentType;
-  patientDetails: PatientDetails;
-  onBack: () => void;
-  onConfirm: () => void;
 }
 
 export function StepReview({
@@ -21,11 +22,11 @@ export function StepReview({
   selectedTime,
   appointmentType,
   patientDetails,
+  physician,
   onBack,
   onConfirm,
+  isConfirming = false,
 }: StepReviewProps) {
-  const physician = physicians.find((p) => p.id === physicianId);
-
   return (
     <div className="space-y-6">
       <div>
@@ -42,10 +43,10 @@ export function StepReview({
             </h3>
             <div className="space-y-2">
               <div className="flex items-center gap-3">
-                <span className="text-3xl">{physician?.avatar}</span>
+                <span className="text-3xl">{physician?.avatar ?? "👨‍⚕️"}</span>
                 <div>
-                  <p className="font-medium">{physician?.name}</p>
-                  <p className="text-sm text-muted-foreground">{physician?.specialty}</p>
+                  <p className="font-medium">{physician?.name ?? physicianId}</p>
+                  <p className="text-sm text-muted-foreground">{physician?.specialty ?? "Physician"}</p>
                 </div>
               </div>
             </div>
@@ -127,8 +128,8 @@ export function StepReview({
         <Button variant="outline" onClick={onBack} className="flex-1">
           Back
         </Button>
-        <Button onClick={onConfirm} className="flex-1">
-          Confirm Booking
+        <Button onClick={onConfirm} disabled={isConfirming} className="flex-1">
+          {isConfirming ? "Submitting..." : "Confirm Booking"}
         </Button>
       </div>
     </div>

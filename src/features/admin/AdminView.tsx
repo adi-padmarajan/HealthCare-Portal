@@ -1,24 +1,27 @@
 import { useState } from "react";
+import { toast } from "sonner";
+
+import { EmptyState, ErrorState, LoadingState } from "@/components/async-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
-import { physicians } from "@/services/mockData";
+import { useBookings, usePhysicians, useUpdateBookingStatus } from "@/services/queries";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Search, Filter, LayoutGrid, LayoutList, Eye, CheckCircle, XCircle } from "lucide-react";
 import type { Booking, BookingStatus, MutableBookingStatus } from "@/types";
 
-interface AdminViewProps {
-  bookings: Booking[];
-  onUpdateStatus: (bookingId: string, status: MutableBookingStatus) => void;
-}
-
-export function AdminView({ bookings, onUpdateStatus }: AdminViewProps) {
+export function AdminView() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | BookingStatus>("all");
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
+  const bookingsQuery = useBookings();
+  const physiciansQuery = usePhysicians();
+  const updateBookingStatus = useUpdateBookingStatus();
+  const bookings = bookingsQuery.data ?? [];
+  const physicians = physiciansQuery.data ?? [];
 
   const filteredBookings = bookings.filter((booking) => {
     const matchesSearch = booking.patientName.toLowerCase().includes(searchTerm.toLowerCase()) || booking.id.toLowerCase().includes(searchTerm.toLowerCase());
@@ -33,14 +36,32 @@ export function AdminView({ bookings, onUpdateStatus }: AdminViewProps) {
   };
 
   const handleConfirm = (bookingId: string) => {
-    onUpdateStatus(bookingId, "Confirmed");
-    setSelectedBooking(null);
+    handleUpdateStatus(bookingId, "Confirmed");
   };
 
   const handleCancel = (bookingId: string) => {
-    onUpdateStatus(bookingId, "Cancelled");
-    setSelectedBooking(null);
+    handleUpdateStatus(bookingId, "Cancelled");
   };
+
+  const handleUpdateStatus = (bookingId: string, status: MutableBookingStatus) => {
+    updateBookingStatus.mutate(
+      { id: bookingId, status },
+      {
+        onError: () => {
+          toast.error("Unable to update appointment", {
+            description: "Please try again. No appointment details were included in this error.",
+          });
+        },
+        onSuccess: () => {
+          toast.success(status === "Confirmed" ? "Appointment confirmed" : "Appointment cancelled");
+          setSelectedBooking(null);
+        },
+      },
+    );
+  };
+
+  const isLoading = bookingsQuery.isLoading || physiciansQuery.isLoading;
+  const isError = bookingsQuery.isError || physiciansQuery.isError;
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4">
@@ -49,7 +70,20 @@ export function AdminView({ bookings, onUpdateStatus }: AdminViewProps) {
         <p className="text-muted-foreground">Manage patient appointments and schedules</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      {isLoading && <LoadingState message="Loading appointment dashboard..." />}
+
+      {isError && (
+        <ErrorState
+          title="Unable to load appointment dashboard"
+          message="Please try again. Appointment details are not shown in this error."
+          onRetry={() => {
+            void bookingsQuery.refetch();
+            void physiciansQuery.refetch();
+          }}
+        />
+      )}
+
+      {!isLoading && !isError && <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
@@ -88,9 +122,9 @@ export function AdminView({ bookings, onUpdateStatus }: AdminViewProps) {
             <p className="text-xs text-muted-foreground">Past 7 days</p>
           </CardContent>
         </Card>
-      </div>
+      </div>}
 
-      <Card>
+      {!isLoading && !isError && <Card>
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <CardTitle>All Appointments</CardTitle>
@@ -134,10 +168,7 @@ export function AdminView({ bookings, onUpdateStatus }: AdminViewProps) {
         </CardHeader>
         <CardContent>
           {filteredBookings.length === 0 ? (
-            <div className="text-center py-12">
-              <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No appointments found</p>
-            </div>
+            <EmptyState framed={false} title="No appointments found" description="Adjust the search or status filters." />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -192,10 +223,10 @@ export function AdminView({ bookings, onUpdateStatus }: AdminViewProps) {
                             </Button>
                             {booking.status === "Pending" && (
                               <>
-                                <Button variant="ghost" size="sm" onClick={() => handleConfirm(booking.id)}>
+                                <Button variant="ghost" size="sm" disabled={updateBookingStatus.isPending} onClick={() => handleConfirm(booking.id)}>
                                   <CheckCircle className="h-4 w-4 text-green-600" />
                                 </Button>
-                                <Button variant="ghost" size="sm" onClick={() => handleCancel(booking.id)}>
+                                <Button variant="ghost" size="sm" disabled={updateBookingStatus.isPending} onClick={() => handleCancel(booking.id)}>
                                   <XCircle className="h-4 w-4 text-red-600" />
                                 </Button>
                               </>
@@ -210,7 +241,7 @@ export function AdminView({ bookings, onUpdateStatus }: AdminViewProps) {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
       <Drawer open={selectedBooking !== null} onOpenChange={(open) => !open && setSelectedBooking(null)}>
         <DrawerContent>
@@ -294,11 +325,11 @@ export function AdminView({ bookings, onUpdateStatus }: AdminViewProps) {
           <DrawerFooter>
             {selectedBooking?.status === "Pending" && (
               <div className="flex gap-3">
-                <Button onClick={() => handleConfirm(selectedBooking.id)} className="flex-1">
+                <Button onClick={() => handleConfirm(selectedBooking.id)} disabled={updateBookingStatus.isPending} className="flex-1">
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Confirm Appointment
                 </Button>
-                <Button variant="destructive" onClick={() => handleCancel(selectedBooking.id)} className="flex-1">
+                <Button variant="destructive" onClick={() => handleCancel(selectedBooking.id)} disabled={updateBookingStatus.isPending} className="flex-1">
                   <XCircle className="h-4 w-4 mr-2" />
                   Cancel Appointment
                 </Button>
