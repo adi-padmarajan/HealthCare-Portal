@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { ProgressSteps } from "../components/ui/progress-steps";
-import { StepPhysician } from "./booking/StepPhysician";
-import { StepDateTime } from "./booking/StepDateTime";
-import { StepPatientDetails } from "./booking/StepPatientDetails";
-import { StepReview } from "./booking/StepReview";
-import { BookingConfirmation } from "./booking/BookingConfirmation";
-import { Card, CardContent } from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
-import { physicians } from "../data/mockData";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { ProgressSteps } from "@/components/ui/progress-steps";
+import {
+  BookingConfirmation,
+  StepDateTime,
+  StepPatientDetails,
+  StepPhysician,
+  StepReview,
+} from "@/features/booking";
+import { physicians } from "@/services/mockData";
 import { format } from "date-fns";
 import { Calendar, Clock, User, X } from "lucide-react";
 import type { AppointmentType, Booking, CreateBookingInput, PatientDetails } from "@/types";

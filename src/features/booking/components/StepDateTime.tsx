@@ -1,8 +1,8 @@
-import { Calendar } from "../../components/ui/calendar";
-import { Button } from "../../components/ui/button";
-import { Card } from "../../components/ui/card";
-import { cn } from "../../components/ui/utils";
-import { timeSlots } from "../../data/mockData";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/components/ui/utils";
+import { timeSlots } from "@/services/mockData";
 import { addDays, isBefore, startOfToday } from "date-fns";
 import type { AppointmentType } from "@/types";
 

@@ -1,6 +1,6 @@
-import { Button } from "../../components/ui/button";
-import { Card, CardContent } from "../../components/ui/card";
-import { physicians } from "../../data/mockData";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { physicians } from "@/services/mockData";
 import { format } from "date-fns";
 import { Calendar, FileText, User } from "lucide-react";
 import type { AppointmentType, PatientDetails } from "@/types";

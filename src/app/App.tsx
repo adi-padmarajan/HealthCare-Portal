@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { PatientView } from "./components/PatientView";
-import { AdminView } from "./components/AdminView";
-import { Button } from "./components/ui/button";
-import { initialBookings } from "./data/mockData";
+import { Button } from "@/components/ui/button";
+import { AdminView } from "@/features/admin";
+import { PatientView } from "@/features/patient";
+import { initialBookings } from "@/services/mockData";
 import { Users, Stethoscope } from "lucide-react";
 import type { Booking, CreateBookingInput, MutableBookingStatus, UserRole } from "@/types";
 
