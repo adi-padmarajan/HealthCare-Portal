@@ -42,8 +42,11 @@ function toInputDate(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }
 
-function emptyTitleForTab(tab: AdminTab, search: string): string {
-  if (search) return "No matching appointments";
+function emptyTitleForTab(
+  tab: AdminTab,
+  filtersActive: boolean,
+): string {
+  if (filtersActive) return "No matching appointments";
   switch (tab) {
     case "Pending":
       return "No pending bookings — you're all caught up!";
@@ -56,8 +59,13 @@ function emptyTitleForTab(tab: AdminTab, search: string): string {
   }
 }
 
-function emptyDescriptionForTab(tab: AdminTab, search: string): string | undefined {
-  if (search) return "Try a different name or booking ID.";
+function emptyDescriptionForTab(
+  tab: AdminTab,
+  filtersActive: boolean,
+): string | undefined {
+  if (filtersActive) {
+    return "Try widening the date range or clearing the search.";
+  }
   switch (tab) {
     case "Pending":
       return "New booking requests will appear here for confirmation.";
@@ -169,13 +177,32 @@ export function AdminView() {
   const isLoading = bookingsQuery.isLoading || physiciansQuery.isLoading;
   const isError = bookingsQuery.isError || physiciansQuery.isError;
 
+  const filtersActive = searchTerm.length > 0 || dateFilter.preset !== "all";
+
   const renderBookingsTable = (rows: Booking[], activeTab: AdminTab) => {
     if (rows.length === 0) {
+      const hasUnfilteredOnTab =
+        filtersActive &&
+        bookings.some((b) => activeTab === "All" || b.status === activeTab);
       return (
         <EmptyState
           framed={false}
-          title={emptyTitleForTab(activeTab, searchTerm)}
-          description={emptyDescriptionForTab(activeTab, searchTerm)}
+          title={emptyTitleForTab(activeTab, hasUnfilteredOnTab)}
+          description={emptyDescriptionForTab(activeTab, hasUnfilteredOnTab)}
+          action={
+            hasUnfilteredOnTab ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchTerm("");
+                  setDateFilter(ALL_DATES);
+                }}
+              >
+                Clear filters
+              </Button>
+            ) : undefined
+          }
         />
       );
     }
