@@ -2,8 +2,18 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { EmptyState, ErrorState, LoadingState } from "@/components/async-state";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
@@ -60,6 +70,7 @@ export function AdminView() {
   const [searchTerm, setSearchTerm] = useState("");
   const [tab, setTab] = useState<AdminTab>("Pending");
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<Booking | null>(null);
   const [statusAnnouncement, setStatusAnnouncement] = useState("");
   const bookingsQuery = useBookings();
   const physiciansQuery = usePhysicians();
@@ -102,7 +113,15 @@ export function AdminView() {
   };
 
   const handleCancel = (bookingId: string) => {
-    handleUpdateStatus(bookingId, "Cancelled");
+    const booking = bookings.find((b) => b.id === bookingId);
+    if (booking) setPendingCancel(booking);
+  };
+
+  const handleConfirmCancellation = () => {
+    if (!pendingCancel) return;
+    const id = pendingCancel.id;
+    setPendingCancel(null);
+    handleUpdateStatus(id, "Cancelled");
   };
 
   const handleUpdateStatus = (bookingId: string, status: MutableBookingStatus) => {
@@ -502,6 +521,35 @@ export function AdminView() {
           </DrawerFooter>
         </DrawerContent>
       </Drawer>
+
+      <AlertDialog
+        open={pendingCancel !== null}
+        onOpenChange={(open) => !open && setPendingCancel(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingCancel?.status === "Confirmed"
+                ? "Cancel this confirmed appointment?"
+                : "Cancel this appointment?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingCancel?.status === "Confirmed"
+                ? "The patient has already been notified that this appointment was confirmed and will receive another notification telling them it's been cancelled. This can't be undone — to rebook, they'll need to submit a new request."
+                : "The patient will be notified that this request was cancelled. This can't be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep appointment</AlertDialogCancel>
+            <AlertDialogAction
+              className={buttonVariants({ variant: "destructive" })}
+              onClick={handleConfirmCancellation}
+            >
+              Cancel appointment
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
