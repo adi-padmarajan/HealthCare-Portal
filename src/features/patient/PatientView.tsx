@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProgressSteps } from "@/components/ui/progress-steps";
+import { useCurrentUser } from "@/features/auth";
 import {
   BookingConfirmation,
   StepDateTime,
@@ -21,27 +22,31 @@ import type { AppointmentType, PatientDetails } from "@/types";
 const steps = ["Choose Physician", "Select Time", "Patient Details", "Review"];
 
 export function PatientView() {
+  const currentUser = useCurrentUser();
   const [view, setView] = useState<"booking" | "my-appointments" | "confirmed">("booking");
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedPhysician, setSelectedPhysician] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState("");
   const [appointmentType, setAppointmentType] = useState<AppointmentType>("In-person");
-  const [patientDetails, setPatientDetails] = useState<PatientDetails>({
-    fullName: "",
+  // Pre-populate from auth so the patient doesn't retype known fields.
+  const [patientDetails, setPatientDetails] = useState<PatientDetails>(() => ({
+    fullName: currentUser?.name ?? "",
     dateOfBirth: "",
-    email: "",
+    email: currentUser?.email ?? "",
     phone: "",
     insurance: "",
     insuranceMemberId: "",
     reason: "",
     isFirstTime: false,
-  });
+  }));
   const [lastBookingId, setLastBookingId] = useState("");
   const physiciansQuery = usePhysicians();
   const createBooking = useCreateBooking();
   const cancelBooking = useCancelBooking();
-  const patientEmail = patientDetails.email.trim();
+  // Always scope "my appointments" to the authenticated user's email,
+  // not the value entered in the booking form — prevents data leakage.
+  const patientEmail = currentUser?.email ?? "";
   const myBookingsQuery = useBookings(
     patientEmail ? { patientEmail } : {},
     view === "my-appointments" && patientEmail.length > 0,
@@ -104,9 +109,9 @@ export function PatientView() {
     setSelectedTime("");
     setAppointmentType("In-person");
     setPatientDetails({
-      fullName: "",
+      fullName: currentUser?.name ?? "",
       dateOfBirth: "",
-      email: "",
+      email: currentUser?.email ?? "",
       phone: "",
       insurance: "",
       insuranceMemberId: "",
