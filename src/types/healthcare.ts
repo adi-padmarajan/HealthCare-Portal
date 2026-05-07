@@ -72,6 +72,7 @@ export interface Appointment {
 }
 
 export interface AvailabilitySlot {
+  id: EntityId;
   physicianId: PhysicianId;
   date: ISODateString;
   time: TimeSlotLabel;
