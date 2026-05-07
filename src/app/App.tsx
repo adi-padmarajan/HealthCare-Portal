@@ -1,5 +1,8 @@
 import { useState } from "react";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/sonner";
 import { AdminView } from "@/features/admin";
 import { PatientView } from "@/features/patient";
 import { initialBookings } from "@/services/mockData";
@@ -13,14 +16,19 @@ export default function App() {
   const handleAddBooking = (newBooking: CreateBookingInput) => {
     const id = `B${String(Math.floor(Math.random() * 9000) + 1000)}`;
     setBookings([...bookings, { ...newBooking, id }]);
+    toast.success("Appointment request submitted", {
+      description: "The appointment is pending office confirmation.",
+    });
   };
 
   const handleUpdateStatus = (bookingId: string, status: MutableBookingStatus) => {
     setBookings(bookings.map((b) => (b.id === bookingId ? { ...b, status } : b)));
+    toast.success(status === "Confirmed" ? "Appointment confirmed" : "Appointment cancelled");
   };
 
   const handleCancelBooking = (bookingId: string) => {
     setBookings(bookings.map((b) => (b.id === bookingId ? { ...b, status: "Cancelled" as const } : b)));
+    toast.info("Appointment cancelled");
   };
 
   return (
@@ -78,6 +86,7 @@ export default function App() {
           <p>© 2026 HealthCare Portal. All rights reserved. Built with care for better patient experiences.</p>
         </div>
       </footer>
+      <Toaster closeButton position="top-right" richColors />
     </div>
   );
 }
