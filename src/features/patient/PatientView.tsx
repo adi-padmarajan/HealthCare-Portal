@@ -17,6 +17,7 @@ import {
 import { useBookings, useCancelBooking, useCreateBooking, usePhysicians } from "@/services/queries";
 import { ApiError } from "@/services/api";
 import { format } from "date-fns";
+import { formatCalendarDate } from "@/lib/date";
 import { Calendar, Clock, User, X } from "lucide-react";
 import type { AppointmentType, PatientDetails } from "@/types";
 
@@ -194,7 +195,7 @@ export function PatientView() {
                           <div className="flex flex-wrap gap-4 text-sm">
                             <div className="flex items-center gap-1.5">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
-                              <span>{format(new Date(booking.date), "MMM d, yyyy")}</span>
+                              <span>{formatCalendarDate(booking.date, "MMM d, yyyy")}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <Clock className="h-4 w-4 text-muted-foreground" />

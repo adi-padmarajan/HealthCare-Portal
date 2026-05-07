@@ -9,6 +9,7 @@ import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, Dr
 import { Input } from "@/components/ui/input";
 import { useAuditLog, useBookings, usePhysicians, useUpdateBookingStatus } from "@/services/queries";
 import { format } from "date-fns";
+import { formatCalendarDate } from "@/lib/date";
 import { Calendar as CalendarIcon, CheckCircle, Eye, Search, XCircle } from "lucide-react";
 import type { AuditLogEntry, Booking, BookingStatus, MutableBookingStatus } from "@/types";
 
@@ -238,7 +239,7 @@ export function AdminView() {
                         </td>
                         <td className="py-3 px-4">
                           <div>
-                            <p className="text-sm">{format(new Date(booking.date), "MMM d, yyyy")}</p>
+                            <p className="text-sm">{formatCalendarDate(booking.date, "MMM d, yyyy")}</p>
                             <p className="text-xs text-muted-foreground">{booking.time}</p>
                           </div>
                         </td>
@@ -354,7 +355,7 @@ export function AdminView() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Date of Birth:</span>
-                    <span className="font-medium">{format(new Date(selectedBooking.dateOfBirth), "MM/dd/yyyy")}</span>
+                    <span className="font-medium">{formatCalendarDate(selectedBooking.dateOfBirth, "MM/dd/yyyy")}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Email:</span>
@@ -389,7 +390,7 @@ export function AdminView() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Date:</span>
-                    <span className="font-medium">{format(new Date(selectedBooking.date), "EEEE, MMMM d, yyyy")}</span>
+                    <span className="font-medium">{formatCalendarDate(selectedBooking.date, "EEEE, MMMM d, yyyy")}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Time:</span>

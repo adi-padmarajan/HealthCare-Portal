@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
+import { formatCalendarDate } from "@/lib/date";
 import { Calendar, FileText, User } from "lucide-react";
 import type { AppointmentType, PatientDetails, Physician } from "@/types";
 
@@ -89,7 +90,7 @@ export function StepReview({
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Date of Birth:</span>
-                <span className="font-medium">{format(new Date(patientDetails.dateOfBirth), "MM/dd/yyyy")}</span>
+                <span className="font-medium">{formatCalendarDate(patientDetails.dateOfBirth, "MM/dd/yyyy")}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Email:</span>
