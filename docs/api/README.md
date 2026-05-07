@@ -2,6 +2,7 @@
 
 Date: 2026-05-07
 Decision: target a custom REST backend for Phase 3.
+Updated: Phase 4 — auth layer added.
 
 This document describes the API expected by the frontend service layer in
 `src/services/api.ts` and mirrored by the MSW handlers in `src/mocks/handlers.ts`.
@@ -25,6 +26,70 @@ For local development, MSW handles `/api/*` by default. Set
   sessions can be supported later.
 - Required response header: `Content-Type: application/json` for JSON payloads.
 
+## Authentication
+
+All endpoints except `POST /auth/login` and `POST /auth/signup` that require
+authentication must receive a bearer token in the `Authorization` header:
+
+```
+Authorization: Bearer <token>
+```
+
+The frontend stores the token in-memory via `src/services/authToken.ts`
+and injects it automatically in every `fetch` request made through `api.ts`.
+
+### Auth Endpoints
+
+#### `POST /auth/login`
+
+Request body:
+
+```json
+{ "email": "patient@example.com", "password": "Demo1234!" }
+```
+
+Success `200`:
+
+```json
+{ "token": "<bearer-token>", "user": { "id": "...", "email": "...", "name": "...", "role": "patient" } }
+```
+
+Failure `401` with code `INVALID_CREDENTIALS`.
+
+#### `POST /auth/signup`
+
+Request body:
+
+```json
+{ "name": "Jane Doe", "email": "jane@example.com", "password": "...", "confirmPassword": "..." }
+```
+
+Success `201` — same shape as login response. New accounts always get role `patient`.
+
+Failure `409` with code `CONFLICT` if email is already registered.
+
+#### `POST /auth/logout`
+
+No body. Returns `204 No Content`. The frontend discards its in-memory token.
+
+### Role Restrictions
+
+| Endpoint | `patient` | `admin` |
+|---|---|---|
+| `GET /physicians` | ✅ public | ✅ public |
+| `POST /physicians` | ❌ | ✅ |
+| `GET /availability` | ✅ public | ✅ public |
+| `GET /bookings` | ✅ scoped to own email | ✅ all |
+| `POST /bookings` | ✅ own email only | ✅ |
+| `PATCH /bookings/:id/status` | ✅ cancel own only | ✅ any status |
+| `DELETE /bookings/:id` | ❌ | ✅ |
+| `GET /patients` | ❌ | ✅ |
+| `GET /patients/:id` | ❌ | ✅ |
+| `GET /patients/:id/bookings` | ❌ | ✅ |
+
+Unauthenticated requests to protected endpoints return `401 UNAUTHORIZED`.
+Authenticated requests without the required role return `403 FORBIDDEN`.
+
 ## Error Shape
 
 All non-2xx responses should return a sanitized error body:
@@ -42,10 +107,10 @@ Do not include PHI in `message`, `code`, or `details`.
 Expected status codes:
 
 - `400` for malformed input.
-- `401` for unauthenticated requests after auth is added.
+- `401` for unauthenticated requests.
 - `403` for authenticated users without permission.
 - `404` for missing records.
-- `409` for booking conflicts such as double booking.
+- `409` for booking conflicts such as double booking, or duplicate email on signup.
 - `422` for validation failures.
 - `500` for sanitized server errors.
 
@@ -163,11 +228,7 @@ Endpoints:
 - `DELETE /patients/:id` -> `204 No Content`
 - `GET /patients/:id/bookings` -> `Booking[]`
 
-Authorization expectations after Phase 4:
-
-- Patients can only read and mutate their own records and bookings.
-- Admin or physician roles can list bookings and update booking status.
-- Backend authorization must not rely on client-provided role switches.
+Authorization rules match the Role Restrictions table above.
 
 ## PHI Handling Requirements
 
@@ -182,10 +243,11 @@ Authorization expectations after Phase 4:
 
 MSW currently implements:
 
+- Auth: `POST /auth/login`, `POST /auth/signup`, `POST /auth/logout`.
 - Physicians CRUD.
 - Availability list/create/update/delete.
-- Bookings list/create/get/update/status/delete.
-- Patients list/create/get/update/delete and patient booking lookup.
+- Bookings list/create/get/update/status/delete with 401/403 enforcement.
+- Patients list/create/get/update/delete and patient booking lookup (admin only).
 - A `409 DOUBLE_BOOKED` response for conflicting booking creation.
 
 The mock layer is not a security boundary. It exists only to keep frontend
