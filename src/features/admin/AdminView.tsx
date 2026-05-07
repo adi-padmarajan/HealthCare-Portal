@@ -179,7 +179,11 @@ export function AdminView() {
             {rows.map((booking) => {
               const physician = physicians.find((p) => p.id === booking.physicianId);
               return (
-                <tr key={booking.id} className="border-b border-border hover:bg-accent/50 transition-colors">
+                <tr
+                  key={booking.id}
+                  className="border-b border-border hover:bg-accent/50 transition-colors cursor-pointer"
+                  onClick={() => setSelectedBooking(booking)}
+                >
                   <td className="py-3 px-4 text-sm font-medium">{booking.id}</td>
                   <td className="py-3 px-4">
                     <div>
@@ -214,7 +218,10 @@ export function AdminView() {
                         variant="ghost"
                         size="sm"
                         aria-label={`View details for booking ${booking.id}`}
-                        onClick={() => setSelectedBooking(booking)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedBooking(booking);
+                        }}
                       >
                         <Eye className="h-4 w-4" aria-hidden="true" />
                       </Button>
@@ -224,7 +231,10 @@ export function AdminView() {
                           size="sm"
                           aria-label={`Confirm appointment ${booking.id}`}
                           disabled={updateBookingStatus.isPending}
-                          onClick={() => handleConfirm(booking.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleConfirm(booking.id);
+                          }}
                         >
                           <CheckCircle className="h-4 w-4 text-green-600" aria-hidden="true" />
                         </Button>
@@ -235,7 +245,10 @@ export function AdminView() {
                           size="sm"
                           aria-label={`Cancel appointment ${booking.id}`}
                           disabled={updateBookingStatus.isPending}
-                          onClick={() => handleCancel(booking.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancel(booking.id);
+                          }}
                         >
                           <XCircle className="h-4 w-4 text-red-600" aria-hidden="true" />
                         </Button>
@@ -479,6 +492,40 @@ export function AdminView() {
               <div>
                 <h3 className="mb-3">Reason for Visit</h3>
                 <p className="text-sm bg-accent/50 p-4 rounded-lg">{selectedBooking.reason}</p>
+              </div>
+
+              <div>
+                <h3 className="mb-3">Activity</h3>
+                {(() => {
+                  const entries = auditEntries
+                    .filter((entry) => entry.targetId === selectedBooking.id)
+                    .slice()
+                    .sort(
+                      (a, b) =>
+                        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+                    );
+                  if (entries.length === 0) {
+                    return (
+                      <p className="text-sm text-muted-foreground">
+                        No status changes recorded yet.
+                      </p>
+                    );
+                  }
+                  return (
+                    <ol className="space-y-3 border-l border-border pl-4">
+                      {entries.map((entry) => (
+                        <li key={entry.id} className="text-sm">
+                          <p className="font-medium">{formatAuditAction(entry)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(entry.timestamp), "MMM d, yyyy 'at' h:mm a")}
+                            {" · "}
+                            <span>{entry.actorId}</span>
+                          </p>
+                        </li>
+                      ))}
+                    </ol>
+                  );
+                })()}
               </div>
             </div>
           )}
