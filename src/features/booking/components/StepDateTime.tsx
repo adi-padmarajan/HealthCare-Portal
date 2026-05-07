@@ -9,6 +9,7 @@ import type { AppointmentType, PhysicianId } from "@/types";
 
 interface StepDateTimeProps {
   appointmentType: AppointmentType;
+  conflictError?: string | null;
   onDateChange: (date: Date | undefined) => void;
   onAppointmentTypeChange: (type: AppointmentType) => void;
   onBack: () => void;
@@ -23,6 +24,7 @@ export function StepDateTime({
   selectedDate,
   selectedTime,
   appointmentType,
+  conflictError,
   onDateChange,
   onTimeChange,
   onAppointmentTypeChange,
@@ -50,6 +52,15 @@ export function StepDateTime({
         <h2 className="mb-2">Select Appointment Time</h2>
         <p className="text-muted-foreground">Choose a convenient date and time for your visit</p>
       </div>
+
+      {conflictError && (
+        <div
+          role="alert"
+          className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          {conflictError}
+        </div>
+      )}
 
       <div>
         <label className="mb-3 block">Appointment Type</label>

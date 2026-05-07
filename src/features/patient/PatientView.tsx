@@ -15,6 +15,7 @@ import {
   StepReview,
 } from "@/features/booking";
 import { useBookings, useCancelBooking, useCreateBooking, usePhysicians } from "@/services/queries";
+import { ApiError } from "@/services/api";
 import { format } from "date-fns";
 import { Calendar, Clock, User, X } from "lucide-react";
 import type { AppointmentType, PatientDetails } from "@/types";
@@ -28,6 +29,7 @@ export function PatientView() {
   const [selectedPhysician, setSelectedPhysician] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState("");
+  const [doubleBookingError, setDoubleBookingError] = useState<string | null>(null);
   const [appointmentType, setAppointmentType] = useState<AppointmentType>("In-person");
   // Pre-populate from auth so the patient doesn't retype known fields.
   const [patientDetails, setPatientDetails] = useState<PatientDetails>(() => ({
@@ -59,6 +61,7 @@ export function PatientView() {
   };
 
   const handleConfirmBooking = async () => {
+    setDoubleBookingError(null);
     try {
       const booking = await createBooking.mutateAsync({
         appointmentType,
@@ -81,10 +84,19 @@ export function PatientView() {
         description: "The appointment is pending office confirmation.",
       });
       setView("confirmed");
-    } catch {
-      toast.error("Unable to submit appointment request", {
-        description: "Please try again. No appointment details were included in this error.",
-      });
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "DOUBLE_BOOKED") {
+        setDoubleBookingError(
+          "That time slot was just taken. Please pick a different time.",
+        );
+        // Go back to the time-selection step so the user can re-pick.
+        setSelectedTime("");
+        setCurrentStep(1);
+      } else {
+        toast.error("Unable to submit appointment request", {
+          description: "Please try again. No appointment details were included in this error.",
+        });
+      }
     }
   };
 
@@ -107,6 +119,7 @@ export function PatientView() {
     setSelectedPhysician("");
     setSelectedDate(undefined);
     setSelectedTime("");
+    setDoubleBookingError(null);
     setAppointmentType("In-person");
     setPatientDetails({
       fullName: currentUser?.name ?? "",
@@ -250,11 +263,16 @@ export function PatientView() {
               selectedDate={selectedDate}
               selectedTime={selectedTime}
               appointmentType={appointmentType}
+              conflictError={doubleBookingError}
               onDateChange={(date) => {
                 setSelectedDate(date);
                 setSelectedTime("");
+                setDoubleBookingError(null);
               }}
-              onTimeChange={setSelectedTime}
+              onTimeChange={(time) => {
+                setSelectedTime(time);
+                setDoubleBookingError(null);
+              }}
               onAppointmentTypeChange={(type) => {
                 setAppointmentType(type);
                 setSelectedTime("");

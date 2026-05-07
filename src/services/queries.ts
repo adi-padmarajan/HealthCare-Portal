@@ -38,7 +38,32 @@ export function useCreateBooking() {
 
   return useMutation({
     mutationFn: (input: CreateBookingInput) => api.bookings.create(input),
-    onSuccess: () => {
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.bookingsRoot });
+
+      const snapshots = queryClient.getQueriesData<Booking[]>({
+        queryKey: queryKeys.bookingsRoot,
+      });
+
+      // Optimistic booking — server assigns the real id on success.
+      const optimisticBooking: Booking = {
+        ...input,
+        id: `optimistic-${Date.now()}`,
+      };
+
+      queryClient.setQueriesData<Booking[]>(
+        { queryKey: queryKeys.bookingsRoot },
+        (bookings) => [...(bookings ?? []), optimisticBooking],
+      );
+
+      return { snapshots };
+    },
+    onError: (_error, _input, context) => {
+      context?.snapshots.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookingsRoot });
       void queryClient.invalidateQueries({ queryKey: ["availability"] });
     },
