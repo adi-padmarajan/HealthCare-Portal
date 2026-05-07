@@ -17,18 +17,30 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError } from "@/services/api";
 import { useAuditLog, useBookings, usePhysicians, useUpdateBookingStatus } from "@/services/queries";
 import { format } from "date-fns";
-import { formatCalendarDate } from "@/lib/date";
+import { formatCalendarDate, parseCalendarDate } from "@/lib/date";
 import { Calendar as CalendarIcon, CheckCircle, Eye, Search, XCircle } from "lucide-react";
 import type { AuditLogEntry, Booking, MutableBookingStatus } from "@/types";
 
+import {
+  ALL_DATES,
+  type DateFilter,
+  type DateFilterPreset,
+  matchesDateFilter,
+  PRESET_LABELS,
+} from "./dateFilter";
 import { computeAdminStats } from "./stats";
 
 type AdminTab = "Pending" | "Confirmed" | "Cancelled" | "All";
 const ADMIN_TABS: readonly AdminTab[] = ["Pending", "Confirmed", "Cancelled", "All"] as const;
+
+function toInputDate(date: Date): string {
+  return format(date, "yyyy-MM-dd");
+}
 
 function emptyTitleForTab(tab: AdminTab, search: string): string {
   if (search) return "No matching appointments";
@@ -71,6 +83,9 @@ function formatAuditAction(entry: AuditLogEntry): string {
 export function AdminView() {
   const [searchTerm, setSearchTerm] = useState("");
   const [tab, setTab] = useState<AdminTab>("Pending");
+  // Filter state lives at this level (not inside a tab) so it persists when
+  // the admin moves between Pending/Confirmed/Cancelled.
+  const [dateFilter, setDateFilter] = useState<DateFilter>(ALL_DATES);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [pendingCancel, setPendingCancel] = useState<Booking | null>(null);
   const [statusAnnouncement, setStatusAnnouncement] = useState("");
@@ -82,13 +97,6 @@ export function AdminView() {
   const physicians = physiciansQuery.data ?? [];
   const auditEntries = auditLogQuery.data ?? [];
 
-  const counts: Record<AdminTab, number> = {
-    All: bookings.length,
-    Cancelled: bookings.filter((b) => b.status === "Cancelled").length,
-    Confirmed: bookings.filter((b) => b.status === "Confirmed").length,
-    Pending: bookings.filter((b) => b.status === "Pending").length,
-  };
-
   const matchesSearch = (booking: Booking) => {
     const term = searchTerm.toLowerCase();
     if (!term) return true;
@@ -98,11 +106,22 @@ export function AdminView() {
     );
   };
 
+  // Counts reflect the active search and date filter so admins see the
+  // working set, not the unfiltered totals — otherwise the badge on
+  // Pending could read 12 while the table shows 3 matching rows.
+  const filtered = bookings.filter(
+    (booking) => matchesSearch(booking) && matchesDateFilter(booking, dateFilter),
+  );
+
+  const counts: Record<AdminTab, number> = {
+    All: filtered.length,
+    Cancelled: filtered.filter((b) => b.status === "Cancelled").length,
+    Confirmed: filtered.filter((b) => b.status === "Confirmed").length,
+    Pending: filtered.filter((b) => b.status === "Pending").length,
+  };
+
   const filterForTab = (activeTab: AdminTab) =>
-    bookings.filter((booking) => {
-      const matchesTab = activeTab === "All" || booking.status === activeTab;
-      return matchesTab && matchesSearch(booking);
-    });
+    filtered.filter((booking) => activeTab === "All" || booking.status === activeTab);
 
   const stats = computeAdminStats(bookings, auditEntries);
 
@@ -334,18 +353,84 @@ export function AdminView() {
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <CardTitle>Appointments</CardTitle>
-            <div className="relative flex-1 md:w-[300px] md:flex-none">
-              <label htmlFor="booking-search" className="sr-only">
-                Search appointments by patient name or booking ID
-              </label>
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-              <Input
-                id="booking-search"
-                placeholder="Search by patient name or ID"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              <div className="relative md:w-[260px]">
+                <label htmlFor="booking-search" className="sr-only">
+                  Search appointments by patient name or booking ID
+                </label>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  id="booking-search"
+                  placeholder="Search by patient name or ID"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                <Select
+                  value={dateFilter.preset}
+                  onValueChange={(value) => {
+                    const preset = value as DateFilterPreset;
+                    setDateFilter((prev) =>
+                      preset === "custom"
+                        ? { from: prev.from, preset, to: prev.to }
+                        : { preset },
+                    );
+                  }}
+                >
+                  <SelectTrigger
+                    className="md:w-[160px]"
+                    aria-label="Filter by appointment date"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(PRESET_LABELS) as DateFilterPreset[]).map((preset) => (
+                      <SelectItem key={preset} value={preset}>
+                        {PRESET_LABELS[preset]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {dateFilter.preset === "custom" && (
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="date-from" className="sr-only">
+                      Start date
+                    </label>
+                    <Input
+                      id="date-from"
+                      type="date"
+                      className="w-[150px]"
+                      value={dateFilter.from ? toInputDate(dateFilter.from) : ""}
+                      onChange={(e) =>
+                        setDateFilter((prev) => ({
+                          ...prev,
+                          from: e.target.value ? parseCalendarDate(e.target.value) : undefined,
+                        }))
+                      }
+                    />
+                    <span aria-hidden="true" className="text-muted-foreground">
+                      —
+                    </span>
+                    <label htmlFor="date-to" className="sr-only">
+                      End date
+                    </label>
+                    <Input
+                      id="date-to"
+                      type="date"
+                      className="w-[150px]"
+                      value={dateFilter.to ? toInputDate(dateFilter.to) : ""}
+                      onChange={(e) =>
+                        setDateFilter((prev) => ({
+                          ...prev,
+                          to: e.target.value ? parseCalendarDate(e.target.value) : undefined,
+                        }))
+                      }
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </CardHeader>
