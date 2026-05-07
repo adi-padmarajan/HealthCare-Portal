@@ -2,21 +2,22 @@ import { useState } from "react";
 import { ProgressSteps } from "../components/ui/progress-steps";
 import { StepPhysician } from "./booking/StepPhysician";
 import { StepDateTime } from "./booking/StepDateTime";
-import { StepPatientDetails, PatientDetails } from "./booking/StepPatientDetails";
+import { StepPatientDetails } from "./booking/StepPatientDetails";
 import { StepReview } from "./booking/StepReview";
 import { BookingConfirmation } from "./booking/BookingConfirmation";
 import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
-import { Booking, physicians } from "../data/mockData";
+import { physicians } from "../data/mockData";
 import { format } from "date-fns";
 import { Calendar, Clock, User, X } from "lucide-react";
+import type { AppointmentType, Booking, CreateBookingInput, PatientDetails } from "@/types";
 
 const steps = ["Choose Physician", "Select Time", "Patient Details", "Review"];
 
 interface PatientViewProps {
   bookings: Booking[];
-  onAddBooking: (booking: Omit<Booking, "id">) => void;
+  onAddBooking: (booking: CreateBookingInput) => void;
   onCancelBooking: (bookingId: string) => void;
 }
 
@@ -26,7 +27,7 @@ export function PatientView({ bookings, onAddBooking, onCancelBooking }: Patient
   const [selectedPhysician, setSelectedPhysician] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState("");
-  const [appointmentType, setAppointmentType] = useState<"In-person" | "Telehealth">("In-person");
+  const [appointmentType, setAppointmentType] = useState<AppointmentType>("In-person");
   const [patientDetails, setPatientDetails] = useState<PatientDetails>({
     fullName: "",
     dateOfBirth: "",

@@ -3,15 +3,16 @@ import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { cn } from "../../components/ui/utils";
 import { timeSlots } from "../../data/mockData";
-import { addDays, format, isBefore, startOfToday } from "date-fns";
+import { addDays, isBefore, startOfToday } from "date-fns";
+import type { AppointmentType } from "@/types";
 
 interface StepDateTimeProps {
   selectedDate: Date | undefined;
   selectedTime: string;
-  appointmentType: "In-person" | "Telehealth";
+  appointmentType: AppointmentType;
   onDateChange: (date: Date | undefined) => void;
   onTimeChange: (time: string) => void;
-  onAppointmentTypeChange: (type: "In-person" | "Telehealth") => void;
+  onAppointmentTypeChange: (type: AppointmentType) => void;
   onNext: () => void;
   onBack: () => void;
 }

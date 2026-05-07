@@ -5,17 +5,7 @@ import { Textarea } from "../../components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Checkbox } from "../../components/ui/checkbox";
 import { insuranceProviders } from "../../data/mockData";
-
-export interface PatientDetails {
-  fullName: string;
-  dateOfBirth: string;
-  email: string;
-  phone: string;
-  insurance: string;
-  insuranceMemberId: string;
-  reason: string;
-  isFirstTime: boolean;
-}
+import type { PatientDetails } from "@/types";
 
 interface StepPatientDetailsProps {
   details: PatientDetails;
