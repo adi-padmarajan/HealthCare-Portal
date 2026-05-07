@@ -25,6 +25,8 @@ import { formatCalendarDate } from "@/lib/date";
 import { Calendar as CalendarIcon, CheckCircle, Eye, Search, XCircle } from "lucide-react";
 import type { AuditLogEntry, Booking, MutableBookingStatus } from "@/types";
 
+import { computeAdminStats } from "./stats";
+
 type AdminTab = "Pending" | "Confirmed" | "Cancelled" | "All";
 const ADMIN_TABS: readonly AdminTab[] = ["Pending", "Confirmed", "Cancelled", "All"] as const;
 
@@ -102,11 +104,7 @@ export function AdminView() {
       return matchesTab && matchesSearch(booking);
     });
 
-  const stats = {
-    pending: bookings.filter((b) => b.status === "Pending").length,
-    confirmedToday: bookings.filter((b) => b.status === "Confirmed" && b.date === format(new Date(), "yyyy-MM-dd")).length,
-    cancelledThisWeek: bookings.filter((b) => b.status === "Cancelled").length,
-  };
+  const stats = computeAdminStats(bookings, auditEntries);
 
   const handleConfirm = (bookingId: string) => {
     handleUpdateStatus(bookingId, "Confirmed");
