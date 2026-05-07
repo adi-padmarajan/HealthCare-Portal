@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -10,10 +11,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { signUpSchema } from "@/lib/schemas/auth";
+import type { SignUpFormValues } from "@/lib/schemas/auth";
 import { Stethoscope } from "lucide-react";
 
 import { useAuthContext } from "../context";
-import type { SignUpCredentials } from "../types";
 
 interface SignUpPageProps {
   onNavigateToLogin: () => void;
@@ -26,13 +28,12 @@ export function SignUpPage({ onNavigateToLogin }: SignUpPageProps) {
   const {
     register,
     handleSubmit,
-    watch,
     formState: { errors, isSubmitting },
-  } = useForm<SignUpCredentials>();
+  } = useForm<SignUpFormValues>({
+    resolver: zodResolver(signUpSchema),
+  });
 
-  const passwordValue = watch("password");
-
-  const onSubmit = async (data: SignUpCredentials) => {
+  const onSubmit = async (data: SignUpFormValues) => {
     setServerError("");
     try {
       await signUp(data);
@@ -94,13 +95,7 @@ export function SignUpPage({ onNavigateToLogin }: SignUpPageProps) {
                   autoComplete="name"
                   aria-invalid={!!errors.name}
                   aria-describedby={errors.name ? "signup-name-error" : undefined}
-                  {...register("name", {
-                    required: "Full name is required",
-                    minLength: {
-                      value: 2,
-                      message: "Name must be at least 2 characters",
-                    },
-                  })}
+                  {...register("name")}
                 />
                 {errors.name && (
                   <p
@@ -128,13 +123,7 @@ export function SignUpPage({ onNavigateToLogin }: SignUpPageProps) {
                   aria-describedby={
                     errors.email ? "signup-email-error" : undefined
                   }
-                  {...register("email", {
-                    required: "Email is required",
-                    pattern: {
-                      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                      message: "Enter a valid email address",
-                    },
-                  })}
+                  {...register("email")}
                 />
                 {errors.email && (
                   <p
@@ -162,13 +151,7 @@ export function SignUpPage({ onNavigateToLogin }: SignUpPageProps) {
                   aria-describedby={
                     errors.password ? "signup-password-error" : undefined
                   }
-                  {...register("password", {
-                    required: "Password is required",
-                    minLength: {
-                      value: 8,
-                      message: "Password must be at least 8 characters",
-                    },
-                  })}
+                  {...register("password")}
                 />
                 {errors.password && (
                   <p
@@ -198,11 +181,7 @@ export function SignUpPage({ onNavigateToLogin }: SignUpPageProps) {
                       ? "signup-confirm-error"
                       : undefined
                   }
-                  {...register("confirmPassword", {
-                    required: "Please confirm your password",
-                    validate: (value) =>
-                      value === passwordValue || "Passwords do not match",
-                  })}
+                  {...register("confirmPassword")}
                 />
                 {errors.confirmPassword && (
                   <p

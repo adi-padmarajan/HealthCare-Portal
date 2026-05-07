@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -10,10 +11,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { loginSchema } from "@/lib/schemas/auth";
+import type { LoginFormValues } from "@/lib/schemas/auth";
 import { Stethoscope } from "lucide-react";
 
 import { useAuthContext } from "../context";
-import type { LoginCredentials } from "../types";
 
 interface LoginPageProps {
   onNavigateToSignUp: () => void;
@@ -27,9 +29,11 @@ export function LoginPage({ onNavigateToSignUp }: LoginPageProps) {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<LoginCredentials>();
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+  });
 
-  const onSubmit = async (data: LoginCredentials) => {
+  const onSubmit = async (data: LoginFormValues) => {
     setServerError("");
     try {
       await login(data);
@@ -93,13 +97,7 @@ export function LoginPage({ onNavigateToSignUp }: LoginPageProps) {
                   aria-describedby={
                     errors.email ? "login-email-error" : undefined
                   }
-                  {...register("email", {
-                    required: "Email is required",
-                    pattern: {
-                      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                      message: "Enter a valid email address",
-                    },
-                  })}
+                  {...register("email")}
                 />
                 {errors.email && (
                   <p
@@ -127,9 +125,7 @@ export function LoginPage({ onNavigateToSignUp }: LoginPageProps) {
                   aria-describedby={
                     errors.password ? "login-password-error" : undefined
                   }
-                  {...register("password", {
-                    required: "Password is required",
-                  })}
+                  {...register("password")}
                 />
                 {errors.password && (
                   <p
