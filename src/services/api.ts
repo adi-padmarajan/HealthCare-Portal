@@ -120,6 +120,15 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     return undefined as T;
   }
 
+  const contentType = response.headers.get("Content-Type") ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new ApiError(
+      "Expected JSON response but received non-JSON content. The API mock may not be active.",
+      502,
+      "INVALID_CONTENT_TYPE",
+    );
+  }
+
   return (await response.json()) as T;
 }
 
