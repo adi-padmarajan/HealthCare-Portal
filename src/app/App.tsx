@@ -1,91 +1,79 @@
 import { useState } from "react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { AdminView } from "@/features/admin";
+import { useAuth, LoginPage, SignUpPage } from "@/features/auth";
 import { PatientView } from "@/features/patient";
-import { initialBookings } from "@/services/mockData";
-import { Users, Stethoscope } from "lucide-react";
-import type { Booking, CreateBookingInput, MutableBookingStatus, UserRole } from "@/types";
+import { LogOut, Stethoscope, User } from "lucide-react";
 
 export default function App() {
-  const [userRole, setUserRole] = useState<UserRole>("patient");
-  const [bookings, setBookings] = useState<Booking[]>(initialBookings);
+  const { currentUser, isAdmin, isSignedIn, logout } = useAuth();
+  const [authView, setAuthView] = useState<"login" | "signup">("login");
 
-  const handleAddBooking = (newBooking: CreateBookingInput) => {
-    const id = `B${String(Math.floor(Math.random() * 9000) + 1000)}`;
-    setBookings([...bookings, { ...newBooking, id }]);
-    toast.success("Appointment request submitted", {
-      description: "The appointment is pending office confirmation.",
-    });
-  };
-
-  const handleUpdateStatus = (bookingId: string, status: MutableBookingStatus) => {
-    setBookings(bookings.map((b) => (b.id === bookingId ? { ...b, status } : b)));
-    toast.success(status === "Confirmed" ? "Appointment confirmed" : "Appointment cancelled");
-  };
-
-  const handleCancelBooking = (bookingId: string) => {
-    setBookings(bookings.map((b) => (b.id === bookingId ? { ...b, status: "Cancelled" as const } : b)));
-    toast.info("Appointment cancelled");
-  };
+  // Not authenticated — show the login wall
+  if (!isSignedIn) {
+    return authView === "login" ? (
+      <LoginPage onNavigateToSignUp={() => setAuthView("signup")} />
+    ) : (
+      <SignUpPage onNavigateToLogin={() => setAuthView("login")} />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#eff6ff] to-[#f0fdf4]">
-      <header className="bg-white border-b border-border shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+      <header className="sticky top-0 z-10 border-b border-border bg-white shadow-sm">
+        <div className="mx-auto max-w-7xl px-4 py-4">
           <div className="flex items-center justify-between">
+            {/* Brand */}
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-[#2563eb] flex items-center justify-center">
-                <Stethoscope className="h-6 w-6 text-white" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#2563eb]">
+                <Stethoscope className="h-6 w-6 text-white" aria-hidden="true" />
               </div>
               <div>
                 <h1 className="text-lg">HealthCare Portal</h1>
-                <p className="text-xs text-muted-foreground">Patient Appointment Management</p>
+                <p className="text-xs text-muted-foreground">
+                  Patient Appointment Management
+                </p>
               </div>
             </div>
 
+            {/* User info + logout */}
             <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground hidden sm:inline">View as:</span>
-              <div className="flex gap-2 bg-accent/50 p-1 rounded-lg">
-                <Button
-                  variant={userRole === "patient" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setUserRole("patient")}
-                  className="gap-2"
-                >
-                  <Users className="h-4 w-4" />
-                  <span className="hidden sm:inline">Patient</span>
-                </Button>
-                <Button
-                  variant={userRole === "admin" ? "default" : "ghost"}
-                  size="sm"
-                  onClick={() => setUserRole("admin")}
-                  className="gap-2"
-                >
-                  <Stethoscope className="h-4 w-4" />
-                  <span className="hidden sm:inline">Admin</span>
-                </Button>
+              <div className="hidden items-center gap-2 text-sm text-muted-foreground sm:flex">
+                <User className="h-4 w-4" aria-hidden="true" />
+                <span>{currentUser?.name}</span>
+                <span className="rounded-full bg-accent px-2 py-0.5 text-xs capitalize">
+                  {currentUser?.role}
+                </span>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={logout}
+                className="gap-2"
+              >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Sign out</span>
+              </Button>
             </div>
           </div>
         </div>
       </header>
 
       <main>
-        {userRole === "patient" ? (
-          <PatientView bookings={bookings} onAddBooking={handleAddBooking} onCancelBooking={handleCancelBooking} />
-        ) : (
-          <AdminView bookings={bookings} onUpdateStatus={handleUpdateStatus} />
-        )}
+        {isAdmin ? <AdminView /> : <PatientView />}
       </main>
 
-      <footer className="bg-white border-t border-border mt-12">
-        <div className="max-w-7xl mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
-          <p>© 2026 HealthCare Portal. All rights reserved. Built with care for better patient experiences.</p>
+      <footer className="mt-12 border-t border-border bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-6 text-center text-sm text-muted-foreground">
+          <p>
+            © 2026 HealthCare Portal. All rights reserved. Built with care for
+            better patient experiences.
+          </p>
         </div>
       </footer>
+
       <Toaster closeButton position="top-right" richColors />
     </div>
   );
