@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, type AvailabilityFilters, type BookingFilters } from "@/services/api";
-import type { Booking, CreateBookingInput, MutableBookingStatus } from "@/types";
+import type { AuditLogEntry, Booking, CreateBookingInput, MutableBookingStatus } from "@/types";
 
 export const queryKeys = {
+  auditLog: ["audit-log"] as const,
   availability: (filters: AvailabilityFilters) => ["availability", filters] as const,
   bookings: (filters: BookingFilters = {}) => ["bookings", filters] as const,
   bookingsRoot: ["bookings"] as const,
@@ -14,6 +15,16 @@ export function usePhysicians() {
   return useQuery({
     queryFn: ({ signal }) => api.physicians.list(signal),
     queryKey: queryKeys.physicians,
+  });
+}
+
+export function useAuditLog() {
+  return useQuery({
+    queryFn: ({ signal }) => api.auditLog.list(signal),
+    queryKey: queryKeys.auditLog,
+    // Refresh every 30 s so the panel stays current as the admin acts.
+    refetchInterval: 30_000,
+    select: (data: AuditLogEntry[]) => data,
   });
 }
 
@@ -98,6 +109,7 @@ export function useCancelBooking() {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookingsRoot });
       void queryClient.invalidateQueries({ queryKey: ["availability"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.auditLog });
     },
   });
 }
@@ -129,6 +141,7 @@ export function useUpdateBookingStatus() {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookingsRoot });
       void queryClient.invalidateQueries({ queryKey: ["availability"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.auditLog });
     },
   });
 }

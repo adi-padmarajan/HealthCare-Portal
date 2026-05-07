@@ -7,21 +7,33 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
-import { useBookings, usePhysicians, useUpdateBookingStatus } from "@/services/queries";
+import { useAuditLog, useBookings, usePhysicians, useUpdateBookingStatus } from "@/services/queries";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Search, Filter, LayoutGrid, LayoutList, Eye, CheckCircle, XCircle } from "lucide-react";
-import type { Booking, BookingStatus, MutableBookingStatus } from "@/types";
+import { Calendar as CalendarIcon, CheckCircle, Eye, Search, XCircle } from "lucide-react";
+import type { AuditLogEntry, Booking, BookingStatus, MutableBookingStatus } from "@/types";
+
+function formatAuditAction(entry: AuditLogEntry): string {
+  if (entry.action === "BOOKING_STATUS_UPDATED") {
+    return `Status: ${String(entry.metadata?.oldStatus ?? "?")} → ${String(entry.metadata?.newStatus ?? "?")}`;
+  }
+  if (entry.action === "BOOKING_DELETED") {
+    return "Soft-deleted";
+  }
+  return entry.action;
+}
 
 export function AdminView() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | BookingStatus>("all");
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
+  const [statusAnnouncement, setStatusAnnouncement] = useState("");
   const bookingsQuery = useBookings();
   const physiciansQuery = usePhysicians();
+  const auditLogQuery = useAuditLog();
   const updateBookingStatus = useUpdateBookingStatus();
   const bookings = bookingsQuery.data ?? [];
   const physicians = physiciansQuery.data ?? [];
+  const auditEntries = auditLogQuery.data ?? [];
 
   const filteredBookings = bookings.filter((booking) => {
     const matchesSearch = booking.patientName.toLowerCase().includes(searchTerm.toLowerCase()) || booking.id.toLowerCase().includes(searchTerm.toLowerCase());
@@ -53,7 +65,9 @@ export function AdminView() {
           });
         },
         onSuccess: () => {
-          toast.success(status === "Confirmed" ? "Appointment confirmed" : "Appointment cancelled");
+          const message = status === "Confirmed" ? "Appointment confirmed" : "Appointment cancelled";
+          toast.success(message);
+          setStatusAnnouncement(message);
           setSelectedBooking(null);
         },
       },
@@ -65,6 +79,11 @@ export function AdminView() {
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4">
+      {/* Screen-reader live region for status update announcements */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {statusAnnouncement}
+      </div>
+
       <div className="mb-8">
         <h1 className="mb-2">Physician Dashboard</h1>
         <p className="text-muted-foreground">Manage patient appointments and schedules</p>
@@ -87,7 +106,7 @@ export function AdminView() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending Approval</CardTitle>
-            <div className="h-8 w-8 rounded-full bg-[#fef3c7] flex items-center justify-center">
+            <div className="h-8 w-8 rounded-full bg-[#fef3c7] flex items-center justify-center" aria-hidden="true">
               <CalendarIcon className="h-4 w-4 text-[#92400e]" />
             </div>
           </CardHeader>
@@ -100,7 +119,7 @@ export function AdminView() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Confirmed Today</CardTitle>
-            <div className="h-8 w-8 rounded-full bg-[#d1fae5] flex items-center justify-center">
+            <div className="h-8 w-8 rounded-full bg-[#d1fae5] flex items-center justify-center" aria-hidden="true">
               <CheckCircle className="h-4 w-4 text-[#065f46]" />
             </div>
           </CardHeader>
@@ -113,7 +132,7 @@ export function AdminView() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Cancelled This Week</CardTitle>
-            <div className="h-8 w-8 rounded-full bg-[#fee2e2] flex items-center justify-center">
+            <div className="h-8 w-8 rounded-full bg-[#fee2e2] flex items-center justify-center" aria-hidden="true">
               <XCircle className="h-4 w-4 text-[#991b1b]" />
             </div>
           </CardHeader>
@@ -124,19 +143,29 @@ export function AdminView() {
         </Card>
       </div>}
 
-      {!isLoading && !isError && <Card>
+      {!isLoading && !isError && <Card className="mb-8">
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <CardTitle>All Appointments</CardTitle>
             <div className="flex items-center gap-3">
               <div className="relative flex-1 md:w-[300px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search by patient name or ID" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9" />
+                <label htmlFor="booking-search" className="sr-only">
+                  Search appointments by patient name or booking ID
+                </label>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                <Input
+                  id="booking-search"
+                  placeholder="Search by patient name or ID"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
               </div>
-              <div className="flex gap-2">
+              <div role="group" aria-label="Filter by status" className="flex gap-2">
                 <Button
                   variant={statusFilter === "all" ? "default" : "outline"}
                   size="sm"
+                  aria-pressed={statusFilter === "all"}
                   onClick={() => setStatusFilter("all")}
                 >
                   All
@@ -144,6 +173,7 @@ export function AdminView() {
                 <Button
                   variant={statusFilter === "Pending" ? "default" : "outline"}
                   size="sm"
+                  aria-pressed={statusFilter === "Pending"}
                   onClick={() => setStatusFilter("Pending")}
                 >
                   Pending
@@ -151,6 +181,7 @@ export function AdminView() {
                 <Button
                   variant={statusFilter === "Confirmed" ? "default" : "outline"}
                   size="sm"
+                  aria-pressed={statusFilter === "Confirmed"}
                   onClick={() => setStatusFilter("Confirmed")}
                 >
                   Confirmed
@@ -158,6 +189,7 @@ export function AdminView() {
                 <Button
                   variant={statusFilter === "Cancelled" ? "default" : "outline"}
                   size="sm"
+                  aria-pressed={statusFilter === "Cancelled"}
                   onClick={() => setStatusFilter("Cancelled")}
                 >
                   Cancelled
@@ -171,16 +203,16 @@ export function AdminView() {
             <EmptyState framed={false} title="No appointments found" description="Adjust the search or status filters." />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full" aria-label="All appointments">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Booking ID</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Patient</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Physician</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date & Time</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Type</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
+                    <th scope="col" className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Booking ID</th>
+                    <th scope="col" className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Patient</th>
+                    <th scope="col" className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Physician</th>
+                    <th scope="col" className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date & Time</th>
+                    <th scope="col" className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Type</th>
+                    <th scope="col" className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                    <th scope="col" className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -197,7 +229,7 @@ export function AdminView() {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <span className="text-lg">{physician?.avatar}</span>
+                            <span className="text-lg" aria-hidden="true">{physician?.avatar}</span>
                             <div>
                               <p className="text-sm font-medium">{physician?.name}</p>
                               <p className="text-xs text-muted-foreground">{physician?.specialty}</p>
@@ -218,16 +250,33 @@ export function AdminView() {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => setSelectedBooking(booking)}>
-                              <Eye className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={`View details for booking ${booking.id}`}
+                              onClick={() => setSelectedBooking(booking)}
+                            >
+                              <Eye className="h-4 w-4" aria-hidden="true" />
                             </Button>
                             {booking.status === "Pending" && (
                               <>
-                                <Button variant="ghost" size="sm" disabled={updateBookingStatus.isPending} onClick={() => handleConfirm(booking.id)}>
-                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`Confirm appointment ${booking.id}`}
+                                  disabled={updateBookingStatus.isPending}
+                                  onClick={() => handleConfirm(booking.id)}
+                                >
+                                  <CheckCircle className="h-4 w-4 text-green-600" aria-hidden="true" />
                                 </Button>
-                                <Button variant="ghost" size="sm" disabled={updateBookingStatus.isPending} onClick={() => handleCancel(booking.id)}>
-                                  <XCircle className="h-4 w-4 text-red-600" />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  aria-label={`Cancel appointment ${booking.id}`}
+                                  disabled={updateBookingStatus.isPending}
+                                  onClick={() => handleCancel(booking.id)}
+                                >
+                                  <XCircle className="h-4 w-4 text-red-600" aria-hidden="true" />
                                 </Button>
                               </>
                             )}
@@ -242,6 +291,50 @@ export function AdminView() {
           )}
         </CardContent>
       </Card>}
+
+      {!isLoading && !isError && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Audit Log</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {auditLogQuery.isLoading ? (
+              <LoadingState message="Loading audit log..." />
+            ) : auditEntries.length === 0 ? (
+              <EmptyState
+                framed={false}
+                title="No audit entries yet"
+                description="Status changes and deletions will appear here."
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full" aria-label="Admin audit log">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th scope="col" className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Time</th>
+                      <th scope="col" className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actor</th>
+                      <th scope="col" className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Action</th>
+                      <th scope="col" className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Booking ID</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditEntries.map((entry) => (
+                      <tr key={entry.id} className="border-b border-border text-sm">
+                        <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
+                          {format(new Date(entry.timestamp), "MMM d, h:mm a")}
+                        </td>
+                        <td className="py-3 px-4">{entry.actorId}</td>
+                        <td className="py-3 px-4">{formatAuditAction(entry)}</td>
+                        <td className="py-3 px-4 font-mono text-xs">{entry.targetId}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Drawer open={selectedBooking !== null} onOpenChange={(open) => !open && setSelectedBooking(null)}>
         <DrawerContent>
@@ -326,11 +419,11 @@ export function AdminView() {
             {selectedBooking?.status === "Pending" && (
               <div className="flex gap-3">
                 <Button onClick={() => handleConfirm(selectedBooking.id)} disabled={updateBookingStatus.isPending} className="flex-1">
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  <CheckCircle className="h-4 w-4 mr-2" aria-hidden="true" />
                   Confirm Appointment
                 </Button>
                 <Button variant="destructive" onClick={() => handleCancel(selectedBooking.id)} disabled={updateBookingStatus.isPending} className="flex-1">
-                  <XCircle className="h-4 w-4 mr-2" />
+                  <XCircle className="h-4 w-4 mr-2" aria-hidden="true" />
                   Cancel Appointment
                 </Button>
               </div>
@@ -344,3 +437,5 @@ export function AdminView() {
     </div>
   );
 }
+
+

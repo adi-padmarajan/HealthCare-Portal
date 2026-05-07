@@ -1,6 +1,7 @@
 import { authToken } from "@/services/authToken";
 import type {
   AppointmentType,
+  AuditLogEntry,
   AvailabilitySlot,
   Booking,
   BookingId,
@@ -127,6 +128,11 @@ function remove(path: string) {
 }
 
 export const api = {
+  auditLog: {
+    list(signal?: AbortSignal) {
+      return request<AuditLogEntry[]>("/audit-log", { signal });
+    },
+  },
   availability: {
     create(input: CreateAvailabilitySlotInput, signal?: AbortSignal) {
       return request<AvailabilitySlot>("/availability", { body: input, method: "POST", signal });

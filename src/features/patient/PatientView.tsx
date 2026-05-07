@@ -215,10 +215,11 @@ export function PatientView() {
                           <Button
                             variant="ghost"
                             size="sm"
+                            aria-label={`Cancel appointment ${booking.id}`}
                             disabled={cancelBooking.isPending}
                             onClick={() => handleCancelBooking(booking.id)}
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-4 w-4" aria-hidden="true" />
                           </Button>
                         )}
                       </div>
