@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { PhysicianCard } from "../PhysicianCard";
-import { physicians } from "../../data/mockData";
-import { Input } from "../../components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PhysicianCard } from "@/features/physicians";
+import { physicians } from "@/services/mockData";
 import { Search } from "lucide-react";
 
 interface StepPhysicianProps {

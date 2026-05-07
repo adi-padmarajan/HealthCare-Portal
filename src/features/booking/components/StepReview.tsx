@@ -1,15 +1,15 @@
-import { Button } from "../../components/ui/button";
-import { Card, CardContent } from "../../components/ui/card";
-import { PatientDetails } from "./StepPatientDetails";
-import { physicians } from "../../data/mockData";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { physicians } from "@/services/mockData";
 import { format } from "date-fns";
-import { Calendar, Clock, User, Phone, Mail, CreditCard, FileText } from "lucide-react";
+import { Calendar, FileText, User } from "lucide-react";
+import type { AppointmentType, PatientDetails } from "@/types";
 
 interface StepReviewProps {
   physicianId: string;
   selectedDate: Date | undefined;
   selectedTime: string;
-  appointmentType: "In-person" | "Telehealth";
+  appointmentType: AppointmentType;
   patientDetails: PatientDetails;
   onBack: () => void;
   onConfirm: () => void;

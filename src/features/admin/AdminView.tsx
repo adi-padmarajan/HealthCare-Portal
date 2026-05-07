@@ -1,21 +1,22 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "../components/ui/drawer";
-import { Booking, physicians } from "../data/mockData";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Input } from "@/components/ui/input";
+import { physicians } from "@/services/mockData";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Search, Filter, LayoutGrid, LayoutList, Eye, CheckCircle, XCircle } from "lucide-react";
+import type { Booking, BookingStatus, MutableBookingStatus } from "@/types";
 
 interface AdminViewProps {
   bookings: Booking[];
-  onUpdateStatus: (bookingId: string, status: "Confirmed" | "Cancelled") => void;
+  onUpdateStatus: (bookingId: string, status: MutableBookingStatus) => void;
 }
 
 export function AdminView({ bookings, onUpdateStatus }: AdminViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "Pending" | "Confirmed" | "Cancelled">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | BookingStatus>("all");
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
 

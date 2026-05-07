@@ -1,28 +1,6 @@
-export interface Physician {
-  id: string;
-  name: string;
-  specialty: string;
-  bio: string;
-  yearsOfExperience: number;
-  avatar: string;
-}
+import type { Booking, Physician } from "@/types";
 
-export interface Booking {
-  id: string;
-  patientName: string;
-  patientEmail: string;
-  patientPhone: string;
-  dateOfBirth: string;
-  insurance: string;
-  insuranceMemberId: string;
-  physicianId: string;
-  date: string;
-  time: string;
-  appointmentType: "In-person" | "Telehealth";
-  reason: string;
-  status: "Pending" | "Confirmed" | "Cancelled";
-  isFirstTime: boolean;
-}
+export type { Booking, Physician } from "@/types";
 
 export const physicians: Physician[] = [
   {

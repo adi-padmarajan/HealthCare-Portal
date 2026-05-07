@@ -1,25 +1,34 @@
 import { useState } from "react";
-import { PatientView } from "./components/PatientView";
-import { AdminView } from "./components/AdminView";
-import { Button } from "./components/ui/button";
-import { Booking, initialBookings } from "./data/mockData";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/sonner";
+import { AdminView } from "@/features/admin";
+import { PatientView } from "@/features/patient";
+import { initialBookings } from "@/services/mockData";
 import { Users, Stethoscope } from "lucide-react";
+import type { Booking, CreateBookingInput, MutableBookingStatus, UserRole } from "@/types";
 
 export default function App() {
-  const [userRole, setUserRole] = useState<"patient" | "admin">("patient");
+  const [userRole, setUserRole] = useState<UserRole>("patient");
   const [bookings, setBookings] = useState<Booking[]>(initialBookings);
 
-  const handleAddBooking = (newBooking: Omit<Booking, "id">) => {
+  const handleAddBooking = (newBooking: CreateBookingInput) => {
     const id = `B${String(Math.floor(Math.random() * 9000) + 1000)}`;
     setBookings([...bookings, { ...newBooking, id }]);
+    toast.success("Appointment request submitted", {
+      description: "The appointment is pending office confirmation.",
+    });
   };
 
-  const handleUpdateStatus = (bookingId: string, status: "Confirmed" | "Cancelled") => {
+  const handleUpdateStatus = (bookingId: string, status: MutableBookingStatus) => {
     setBookings(bookings.map((b) => (b.id === bookingId ? { ...b, status } : b)));
+    toast.success(status === "Confirmed" ? "Appointment confirmed" : "Appointment cancelled");
   };
 
   const handleCancelBooking = (bookingId: string) => {
     setBookings(bookings.map((b) => (b.id === bookingId ? { ...b, status: "Cancelled" as const } : b)));
+    toast.info("Appointment cancelled");
   };
 
   return (
@@ -77,6 +86,7 @@ export default function App() {
           <p>© 2026 HealthCare Portal. All rights reserved. Built with care for better patient experiences.</p>
         </div>
       </footer>
+      <Toaster closeButton position="top-right" richColors />
     </div>
   );
 }
