@@ -1,5 +1,7 @@
 # HealthCare Portal
 
+![HealthCare Portal screenshot](./Screenshot1.png)
+
 A patient appointment booking application for clinics: patients pick a physician, schedule a visit, and manage their bookings; clinic staff confirm or cancel requests, watch today's schedule, and review an audit trail of every status change. The app started as a Figma Make prototype and was hardened across seven phases — type safety, mocked REST + server state, auth and RBAC, validated forms, healthcare-specific safeguards (PHI, audit, timezones), accessibility, and a fully functional admin portal with tests.
 
 This README reflects the state on `production-hardening`. The original prototype is preserved in the initial commits.
