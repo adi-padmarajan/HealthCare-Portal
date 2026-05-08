@@ -6,7 +6,7 @@ This README reflects the state on `production-hardening`. The original prototype
 
 ## Demo
 
-A short walkthrough of both flows: **[Demo.mov](./Demo.mov)** (~48 MB). Open it locally to play; most markdown renderers won't auto-embed `.mov` from a relative link.
+A short walkthrough of both flows: **[Demo.mp4](./Demo.mp4)** (~10 MB). Open it locally to play; most markdown renderers won't auto-embed video from a relative link.
 
 ## Running the project
 
